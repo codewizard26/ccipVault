@@ -5,10 +5,10 @@ import path from 'path';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { rootHash: string } }
+    context: { params: Promise<{ rootHash: string }> }
 ) {
     try {
-        const { rootHash } = params;
+        const { rootHash } = await context.params;
         const { searchParams } = new URL(request.url);
         const fileName = searchParams.get('fileName');
 
@@ -33,8 +33,8 @@ export async function GET(
         // Clean up temporary file
         await unlink(tempOutputPath);
 
-        // Return file as response
-        return new NextResponse(fileBuffer, {
+        // Return file as response (convert Buffer -> Uint8Array)
+        return new NextResponse(new Uint8Array(fileBuffer), {
             headers: {
                 'Content-Type': 'application/octet-stream',
                 'Content-Disposition': `attachment; filename="${outputFileName}"`,

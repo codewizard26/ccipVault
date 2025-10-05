@@ -21,12 +21,17 @@ export class ZGComputeService {
         this.provider = new ethers.JsonRpcProvider("https://evmrpc-testnet.0g.ai");
 
         // Check if private key is properly configured
-        const privateKey = process.env.PRIVATE_KEY;
-        if (!privateKey || privateKey === "0xyour_private_key_here" || privateKey.includes("your_private_key")) {
+        const raw = process.env.PRIVATE_KEY;
+        if (!raw || raw === "0xyour_private_key_here" || raw.includes("your_private_key")) {
             throw new Error("Private key not configured. Please set PRIVATE_KEY in your environment variables.");
         }
+        const trimmed = raw.trim().replace(/^0x/i, '');
+        if (!/^[0-9a-fA-F]{64}$/.test(trimmed)) {
+            throw new Error("Invalid PRIVATE_KEY format. Expected 64 hex chars (with or without 0x). ");
+        }
+        const normalized = '0x' + trimmed;
 
-        this.wallet = new ethers.Wallet(privateKey, this.provider);
+        this.wallet = new ethers.Wallet(normalized, this.provider);
     }
 
     // Initialize the broker

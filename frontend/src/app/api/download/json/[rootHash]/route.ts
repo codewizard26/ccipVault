@@ -3,10 +3,10 @@ import { downloadJsonData } from '@/lib/UploadDataToStorage';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { rootHash: string } }
+    context: { params: Promise<{ rootHash: string }> }
 ) {
     try {
-        const { rootHash } = params;
+        const { rootHash } = await context.params;
         const { searchParams } = new URL(request.url);
         const fileName = searchParams.get('fileName');
 

@@ -4,11 +4,12 @@ import { DatabaseService } from '@/lib/database';
 // GET /api/transactions/[hash] - Get transaction by hash
 export async function GET(
   request: NextRequest,
-  { params }: { params: { hash: string } }
+  context: { params: Promise<{ hash: string }> }
 ) {
   try {
-    const transaction = await DatabaseService.getTransactionByHash(params.hash);
-    
+    const { hash } = await context.params;
+    const transaction = await DatabaseService.getTransactionByHash(hash);
+
     if (!transaction) {
       return NextResponse.json(
         { success: false, error: 'Transaction not found' },
@@ -32,7 +33,7 @@ export async function GET(
 // PUT /api/transactions/[hash] - Update transaction root hash
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { hash: string } }
+  context: { params: Promise<{ hash: string }> }
 ) {
   try {
     const body = await request.json();
@@ -45,8 +46,9 @@ export async function PUT(
       );
     }
 
-    const transaction = await DatabaseService.updateRootHash(params.hash, rootHash);
-    
+    const { hash } = await context.params;
+    const transaction = await DatabaseService.updateRootHash(hash, rootHash);
+
     if (!transaction) {
       return NextResponse.json(
         { success: false, error: 'Transaction not found' },

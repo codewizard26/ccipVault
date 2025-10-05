@@ -273,8 +273,8 @@ export default function Home() {
             <div className="max-w-3xl mx-auto space-y-6">
               {[
                 { phase: "Phase 1", title: "Vault UI with Deposit/Withdraw", status: "complete" },
-                { phase: "Phase 2", title: "0G Storage for Snapshots", status: "current" },
-                { phase: "Phase 3", title: "0G Compute Analytics Dashboard", status: "future" },
+                { phase: "Phase 2", title: "0G Storage for Snapshots", status: "complete" },
+                { phase: "Phase 3", title: "0G Compute Analytics Dashboard", status: "complete" },
                 { phase: "Phase 4", title: "Cross Chain Integration (CCIP) & Advanced Features", status: "future" }
               ].map((item) => (
                 <div key={item.phase} className="flex items-center bg-white p-6 rounded-xl border border-blue-100">

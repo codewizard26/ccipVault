@@ -2,6 +2,7 @@ import { ZgFile, Indexer } from '@0glabs/0g-ts-sdk';
 import { ethers } from 'ethers';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
 
 // Network Constants
 const RPC_URL = 'https://evmrpc-testnet.0g.ai/';
@@ -15,16 +16,18 @@ const INDEXER_ENDPOINTS = [
 
 // Lazy initialization functions
 function getSigner() {
-    const privateKey = process.env.PRIVATE_KEY;
-    if (!privateKey) {
-        console.log(privateKey);
+    const raw = process.env.PRIVATE_KEY;
+    if (!raw) {
         throw new Error('PRIVATE_KEY environment variable is not set');
     }
-
-
+    const trimmed = raw.trim().replace(/^0x/i, '');
+    if (!/^[0-9a-fA-F]{64}$/.test(trimmed)) {
+        throw new Error('Invalid PRIVATE_KEY format. Expected 64 hex chars (with or without 0x).');
+    }
+    const normalized = '0x' + trimmed;
 
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    return new ethers.Wallet("d4163a9ae1d49c4a3d824677ed188fe1a30f5640880008655b04217b7dfdebac", provider);
+    return new ethers.Wallet(normalized, provider);
 }
 
 async function getIndexer() {
@@ -108,8 +111,8 @@ export async function uploadJsonData(
     jsonData: any,
     fileName: string = 'data.json'
 ) {
-    // Ensure temp directory exists
-    const tempDir = path.join(process.cwd(), 'temp');
+    // Ensure temp directory exists (use serverless-safe tmp dir)
+    const tempDir = path.join(process.env.TMPDIR || os.tmpdir(), '0g-temp');
     await fs.mkdir(tempDir, { recursive: true });
 
     const tempFilePath = path.join(tempDir, `${Date.now()}-${fileName}`);
@@ -150,8 +153,8 @@ export async function downloadJsonData(
     rootHash: string,
     outputFileName: string = 'downloaded-data.json'
 ): Promise<any> {
-    // Ensure temp directory exists
-    const tempDir = path.join(process.cwd(), 'temp');
+    // Ensure temp directory exists (use serverless-safe tmp dir)
+    const tempDir = path.join(process.env.TMPDIR || os.tmpdir(), '0g-temp');
     await fs.mkdir(tempDir, { recursive: true });
 
     const tempOutputPath = path.join(tempDir, `${Date.now()}-${outputFileName}`);

@@ -15,13 +15,20 @@ const INDEXER_ENDPOINTS = [
 
 // Lazy initialization functions
 function getSigner() {
-    const privateKey = process.env.PRIVATE_KEY;
-    if (!privateKey) {
+    const raw = process.env.PRIVATE_KEY;
+    if (!raw) {
         throw new Error('PRIVATE_KEY environment variable is not set');
     }
 
+    // Normalize: trim whitespace/newlines, ensure 0x-prefix, validate length
+    const trimmed = raw.trim().replace(/^0x/i, '');
+    if (!/^[0-9a-fA-F]{64}$/.test(trimmed)) {
+        throw new Error('Invalid PRIVATE_KEY format. Expected 64 hex chars (with or without 0x).');
+    }
+    const normalized = '0x' + trimmed;
+
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    return new ethers.Wallet("d4163a9ae1d49c4a3d824677ed188fe1a30f5640880008655b04217b7dfdebac", provider);
+    return new ethers.Wallet(normalized, provider);
 }
 
 async function getIndexer() {
