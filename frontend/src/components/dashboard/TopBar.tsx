@@ -54,7 +54,7 @@ export function TopBar() {
         </div>
         <Button
           onClick={handleConnect}
-          className="bg-blue-600 hover:bg-blue-700 text-white transition-all px-6 py-2 text-sm font-medium rounded-xl"
+          className="bg-blue-600 hover:bg-blue-700 text-white transition-all px-6 py-2 text-sm font-medium rounded-xl shadow-sm"
         >
           <Wallet className="w-4 h-4 mr-2" />
           Connect Wallet
@@ -82,7 +82,7 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center space-x-3">
-        <div className="flex items-center space-x-2 bg-blue-50 rounded-xl px-4 py-2 border border-blue-100 transition-all hover:border-blue-200">
+        <div className="flex items-center space-x-2 bg-blue-50 rounded-xl px-4 py-2 border border-blue-100 transition-all hover:border-blue-200 shadow-sm">
           <Avatar className="w-6 h-6">
             <AvatarFallback className="text-xs bg-blue-100 text-blue-600">
               {address ? address.slice(2, 4).toUpperCase() : "??"}

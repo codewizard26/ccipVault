@@ -8,7 +8,8 @@ import {
   Settings,
   Wallet,
   TrendingUp,
-  Shield
+  Shield,
+  Brain
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -27,6 +28,12 @@ const navigation = [
     href: "/dashboard/analytics",
     icon: TrendingUp,
     description: "View vault analytics and insights"
+  },
+  {
+    name: "AI Analysis",
+    href: "/dashboard/ai-analysis",
+    icon: Brain,
+    description: "Get AI-powered vault insights"
   },
   {
     name: "History",
@@ -63,7 +70,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <div className="flex h-full w-64 flex-col bg-white shadow-sm">
+    <div className="flex h-full w-64 flex-col bg-white shadow-sm border-r border-blue-100">
       {/* Logo/Brand */}
       <div className="flex h-16 items-center px-6 bg-white border-b border-blue-100">
         <div className="flex items-center space-x-2">
@@ -83,9 +90,9 @@ export function Sidebar() {
               <Button
                 variant={isActive ? "default" : "ghost"}
                 className={cn(
-                  "w-full justify-start h-12 px-4 transition-colors duration-150",
+                  "w-full justify-start h-12 px-4 rounded-xl transition-all",
                   isActive
-                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100"
+                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100 shadow-sm"
                     : "text-gray-600 hover:bg-blue-50 hover:text-blue-700"
                 )}
               >
@@ -113,7 +120,7 @@ export function Sidebar() {
         <div className="space-y-3">
           {stats.map((stat) => (
             <div key={stat.name}
-              className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-100 hover:border-blue-200 transition-colors duration-150 shadow-sm"
+              className="flex items-center justify-between p-3 bg-white rounded-xl border border-blue-100 hover:border-blue-200 transition-all shadow-sm"
             >
               <div className="flex items-center space-x-3 min-w-0 flex-1">
                 <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">

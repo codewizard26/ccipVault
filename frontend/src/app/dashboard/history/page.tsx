@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -12,6 +12,7 @@ import {
   Database,
   Loader2
 } from "lucide-react"
+import toast from "react-hot-toast"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -38,63 +39,58 @@ interface Transaction {
   }
 }
 
-// Mock data - replace with actual data from your backend
-const mockTransactions: Transaction[] = [
-  {
-    id: "1",
-    type: "deposit",
-    amount: "0.5",
-    token: "0G",
-    value: "$1,234.56",
-    status: "completed",
-    timestamp: "2 hours ago",
-    hash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-    snapshotRootHash: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-    snapshotData: {
-      txHash: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-      chainUid: 16601,
-      amount: 0.5,
-      token: "0G",
-      timestamp: "2024-01-15T10:30:00Z",
-      userAddress: "0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
-    }
-  },
-  {
-    id: "2",
-    type: "interest",
-    amount: "0.01",
-    token: "0G",
-    value: "$24.68",
-    status: "completed",
-    timestamp: "1 day ago",
-    hash: "0x876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
-    snapshotRootHash: "0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
-    snapshotData: {
-      txHash: "0x876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
-      chainUid: 16601,
-      amount: 0.01,
-      token: "0G",
-      timestamp: "2024-01-14T15:45:00Z",
-      userAddress: "0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
-    }
-  },
-  {
-    id: "3",
-    type: "withdraw",
-    amount: "0.1",
-    token: "0G",
-    value: "$246.80",
-    status: "pending",
-    timestamp: "3 days ago",
-    hash: "0xabcd1234ef567890abcd1234ef567890abcd1234ef567890abcd1234ef567890"
-  }
-]
-
 export default function HistoryPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions)
+
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [filterType, setFilterType] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const [loadingSnapshot, setLoadingSnapshot] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isCancelled = false
+
+    async function fetchTransactions() {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        // Fetch transactions from database
+        const dbResponse = await fetch('/api/transactions')
+        if (dbResponse.ok) {
+          const dbData = await dbResponse.json()
+          const dbTransactions: Transaction[] = dbData.data.map((tx: any) => ({
+            id: tx.id.toString(),
+            type: tx.transaction_type,
+            amount: tx.amount,
+            token: tx.transaction_type === 'deposit' ? '0G' : 'RBT',
+            value: "",
+            status: 'completed', // All transactions in DB are completed since we wait for hash
+            timestamp: new Date(tx.timestamp).toLocaleString(),
+            hash: tx.transaction_hash,
+            snapshotRootHash: tx.root_hash || undefined,
+          }))
+
+          if (!isCancelled) {
+            setTransactions(dbTransactions)
+          }
+        } else {
+          throw new Error('Failed to fetch transactions from database')
+        }
+      } catch (e: any) {
+        if (!isCancelled) setError(e?.message ?? "Failed to fetch transactions")
+      } finally {
+        if (!isCancelled) setIsLoading(false)
+      }
+    }
+
+    fetchTransactions()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -125,21 +121,57 @@ export default function HistoryPage() {
   const fetchSnapshot = async (rootHash: string, txId: string) => {
     setLoadingSnapshot(txId)
     try {
-      // Mock API call to fetch snapshot from 0G
-      const response = await fetch(`/api/fetch-snapshot?rootHash=${rootHash}`)
+      const response = await fetch(`/api/download-transaction?rootHash=${rootHash}`)
       if (response.ok) {
-        const data = await response.json()
-        // Update transaction with snapshot data
-        setTransactions(prev => prev.map(tx =>
-          tx.id === txId ? { ...tx, snapshotData: data } : tx
-        ))
+        const result = await response.json()
+        if (result.success) {
+          setTransactions(prev => prev.map(tx =>
+            tx.id === txId ? { ...tx, snapshotData: result.data } : tx
+          ))
+          toast.success(`Transaction data fetched from 0G storage successfully! Root Hash: ${rootHash.slice(0, 8)}...${rootHash.slice(-8)}`)
+        } else {
+          throw new Error(result.error || "Failed to fetch transaction data")
+        }
       } else {
-        throw new Error("Failed to fetch snapshot")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch transaction data")
       }
     } catch (error) {
-      console.error("Error fetching snapshot:", error)
+      console.error("Error fetching transaction data from 0G storage:", error)
+      toast.error(`Failed to fetch transaction data: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setLoadingSnapshot(null)
+    }
+  }
+
+  const refreshTransactions = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const dbResponse = await fetch('/api/transactions')
+      if (dbResponse.ok) {
+        const dbData = await dbResponse.json()
+        const dbTransactions: Transaction[] = dbData.data.map((tx: any) => ({
+          id: tx.id.toString(),
+          type: tx.transaction_type,
+          amount: tx.amount,
+          token: tx.transaction_type === 'deposit' ? '0G' : 'RBT',
+          value: "",
+          status: 'completed', // All transactions in DB are completed since we wait for hash
+          timestamp: new Date(tx.timestamp).toLocaleString(),
+          hash: tx.transaction_hash,
+          snapshotRootHash: tx.root_hash || undefined,
+        }))
+
+        setTransactions(dbTransactions)
+      } else {
+        throw new Error('Failed to fetch transactions from database')
+      }
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to fetch transactions")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -151,22 +183,20 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Transaction History</h1>
-        <p className="text-gray-600 mt-2">
+        <h1 className="text-3xl font-bold text-blue-900">Transaction History</h1>
+        <p className="text-blue-700 mt-2">
           View all your vault transactions and activity
         </p>
       </div>
 
-      {/* Filters */}
-      <Card>
+      <Card className="border-blue-100">
         <CardHeader>
           <CardTitle>Filters</CardTitle>
           <CardDescription>Filter transactions by type and status</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col md:flex-row md:items-end md:space-x-4 space-y-4 md:space-y-0">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Transaction Type
@@ -174,7 +204,7 @@ export default function HistoryPage() {
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Transactions</option>
                 <option value="deposit">Deposits</option>
@@ -189,7 +219,7 @@ export default function HistoryPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Status</option>
                 <option value="completed">Completed</option>
@@ -197,30 +227,42 @@ export default function HistoryPage() {
                 <option value="failed">Failed</option>
               </select>
             </div>
+            <div className="flex-1" />
+            <div>
+              <Button onClick={refreshTransactions} variant="outline" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  'Refresh'
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Transactions List */}
-      <Card>
+      <Card className="border-blue-100">
         <CardHeader>
           <CardTitle>Recent Transactions</CardTitle>
           <CardDescription>
-            {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''} found
+            {isLoading ? "Loading..." : error ? error : `${filteredTransactions.length} transaction${filteredTransactions.length !== 1 ? 's' : ''} found`}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {filteredTransactions.length === 0 ? (
+            {!isLoading && filteredTransactions.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 No transactions found matching your filters
               </div>
             ) : (
               filteredTransactions.map((tx) => (
-                <div key={tx.id} className="border border-gray-200 rounded-lg p-4">
+                <div key={tx.id} className="border border-blue-100 rounded-xl p-4 bg-white">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                      <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
                         {getTypeIcon(tx.type)}
                       </div>
                       <div>
@@ -229,7 +271,7 @@ export default function HistoryPage() {
                             {tx.type}
                           </p>
                           {tx.snapshotRootHash && (
-                            <Badge variant="secondary" className="flex items-center space-x-1">
+                            <Badge variant="secondary" className="flex items-center space-x-1 bg-blue-50 text-blue-700 border border-blue-100">
                               <Database className="w-3 h-3" />
                               <span>0G</span>
                             </Badge>
@@ -240,7 +282,7 @@ export default function HistoryPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium text-gray-900">{tx.amount} {tx.token}</p>
+                      <p className="font-medium text-blue-900">{tx.amount} {tx.token}</p>
                       <p className="text-sm text-gray-600">{tx.value}</p>
                       <div className="flex items-center justify-end mt-1">
                         {getStatusIcon(tx.status)}
@@ -251,13 +293,12 @@ export default function HistoryPage() {
                     </div>
                   </div>
 
-                  {/* Snapshot Actions */}
                   {tx.snapshotRootHash && (
                     <div className="mt-3 pt-3 border-t border-gray-100">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                           <Database className="w-4 h-4" />
-                          <span>Snapshot stored on 0G</span>
+                          <span>Transaction data stored on 0G</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           {!tx.snapshotData && (
@@ -275,7 +316,7 @@ export default function HistoryPage() {
                               ) : (
                                 <>
                                   <Eye className="w-4 h-4 mr-2" />
-                                  Fetch Snapshot
+                                  Fetch Data
                                 </>
                               )}
                             </Button>
@@ -285,10 +326,10 @@ export default function HistoryPage() {
                               trigger={
                                 <Button variant="outline" size="sm">
                                   <Eye className="w-4 h-4 mr-2" />
-                                  View Snapshot
+                                  View Data
                                 </Button>
                               }
-                              title={`Snapshot for ${tx.type} transaction`}
+                              title={`Transaction Data for ${tx.type}`}
                               data={tx.snapshotData}
                               rootHash={tx.snapshotRootHash}
                             />

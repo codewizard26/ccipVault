@@ -2,15 +2,15 @@
 // Updated with deployed contract addresses
 
 export const CONTRACTS = {
-    // Deployed contract addresses on 0G Galileo Testnet
-    REBASE_TOKEN: "0xE4aD0ADAf7E5759569081dF90fC76381eD70A2B5",
-    POOL: "0x6c1FEDA3Ace971Ba274BC5b5622acC08Ad2A872C",
-    VAULT: "0x1a89Be0B6e08B8cF668B36c6F95f9781ABC917ba",
+    // Deployed contract addresses on 0G Galileo Testnet (Chain ID: 16602)
+    REBASE_TOKEN: "0xe1927760CE13363e0813d9fcDbd2ab6771A6585a",
+    POOL: "0xf6C7bF63A9E8C33A16e35783cDb4984f86e55602",
+    VAULT: "0x056c765EEDe2Da129d36d7bBA656B1f0f8d30D7f",
 };
 
 export const NETWORKS = {
     GALILEO: {
-        id: 16601, // 0x40d9 in hex - actual 0G Galileo Testnet chain ID
+        id: 16602, // 0x40d9 in hex - actual 0G Galileo Testnet chain ID
         name: "0G Galileo Testnet",
         rpcUrl: "https://evmrpc-testnet.0g.ai",
         blockExplorer: "https://galileo.0g.ai",

@@ -10,6 +10,13 @@ else
     exit 1
 fi
 
+# Set gas price for deployment - use 10x current gas price
+CURRENT_GAS=$(cast gas-price --rpc-url ${GALILEO_RPC_URL})
+HIGH_GAS=$((CURRENT_GAS * 10))
+export ETH_GAS_PRICE=$HIGH_GAS
+echo "Current gas price: $CURRENT_GAS"
+echo "Using gas price: $HIGH_GAS"
+
 # Check required environment variables
 echo "Checking environment variables..."
 
@@ -32,13 +39,10 @@ echo "Galileo RPC URL: ${GALILEO_RPC_URL:0:20}..."
 echo "Compiling contracts..."
 forge build
 
-# Deploy the Rebase Token contract on Galileo using cast send
+# Deploy the Rebase Token contract on Galileo using forge create
 echo "Deploying the Rebase Token contract on Galileo..."
-REBASE_TOKEN_BYTECODE=$(forge inspect RebaseToken bytecode)
-REBASE_TOKEN_ARGS=$(cast abi-encode "constructor(string,string,address,address,address)" "Rebase Token" "RBT" "0x83eBE7Ceb4916C3Cb86662f65b353E4324390059" "0xd211Bd4ff8fd68C16016C5c7a66b6e10F6227C49" "0x5c21Bb4Bd151Bd6Fa2E6d7d1b63B83485529Cdb4")
-
-DEPLOY_OUTPUT=$(cast send --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} --create "${REBASE_TOKEN_BYTECODE}${REBASE_TOKEN_ARGS:2}" 2>&1)
-GALILEO_REBASE_TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "contractAddress" | awk '{print $2}')
+DEPLOY_OUTPUT=$(forge create src/RebaseToken.sol:RebaseToken --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} --gas-price $HIGH_GAS --broadcast --constructor-args "Rebase Token" "RBT" "0x83eBE7Ceb4916C3Cb86662f65b353E4324390059" "0xd211Bd4ff8fd68C16016C5c7a66b6e10F6227C49" "0x5c21Bb4Bd151Bd6Fa2E6d7d1b63B83485529Cdb4" 2>&1)
+GALILEO_REBASE_TOKEN_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "Deployed to:" | awk '{print $3}')
 
 echo "Galileo rebase token address: $GALILEO_REBASE_TOKEN_ADDRESS"
 
@@ -58,11 +62,8 @@ fi
 
 # Compile and deploy the pool contract on Galileo
 echo "Compiling and deploying the pool contract on Galileo..."
-POOL_BYTECODE=$(forge inspect RebaseTokenPool bytecode)
-POOL_ARGS=$(cast abi-encode "constructor(address,address[],address,address)" "$GALILEO_REBASE_TOKEN_ADDRESS" "[]" "0x83eBE7Ceb4916C3Cb86662f65b353E4324390059" "0x5c21Bb4Bd151Bd6Fa2E6d7d1b63B83485529Cdb4")
-
-DEPLOY_OUTPUT=$(cast send --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} --create "${POOL_BYTECODE}${POOL_ARGS:2}" 2>&1)
-GALILEO_POOL_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "contractAddress" | awk '{print $2}')
+DEPLOY_OUTPUT=$(forge create src/RebaseTokenPool.sol:RebaseTokenPool --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} --gas-price $HIGH_GAS --broadcast --constructor-args "$GALILEO_REBASE_TOKEN_ADDRESS" "[]" "0x83eBE7Ceb4916C3Cb86662f65b353E4324390059" "0x5c21Bb4Bd151Bd6Fa2E6d7d1b63B83485529Cdb4" 2>&1)
+GALILEO_POOL_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "Deployed to:" | awk '{print $3}')
 
 echo "Galileo pool address: $GALILEO_POOL_ADDRESS"
 
@@ -82,11 +83,8 @@ fi
 
 # Deploy the vault on Galileo
 echo "Deploying the vault on Galileo..."
-VAULT_BYTECODE=$(forge inspect Vault bytecode)
-VAULT_ARGS=$(cast abi-encode "constructor(address)" "$GALILEO_REBASE_TOKEN_ADDRESS")
-
-DEPLOY_OUTPUT=$(cast send --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} --create "${VAULT_BYTECODE}${VAULT_ARGS:2}" 2>&1)
-VAULT_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "contractAddress" | awk '{print $2}')
+DEPLOY_OUTPUT=$(forge create src/Vault.sol:Vault --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} --gas-price $HIGH_GAS --broadcast --constructor-args "$GALILEO_REBASE_TOKEN_ADDRESS" 2>&1)
+VAULT_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep "Deployed to:" | awk '{print $3}')
 
 echo "Galileo vault address: $VAULT_ADDRESS"
 
@@ -106,23 +104,24 @@ fi
 
 # Set the permissions for the pool contract on Galileo
 echo "Setting the permissions for the pool contract on Galileo..."
-cast send ${GALILEO_REBASE_TOKEN_ADDRESS} --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} "grantMintAndBurnRole(address)" ${GALILEO_POOL_ADDRESS}
+cast send ${GALILEO_REBASE_TOKEN_ADDRESS} --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} --gas-price $HIGH_GAS "grantMintAndBurnRole(address)" ${GALILEO_POOL_ADDRESS}
 echo "Pool permissions set on Galileo"
 
 # Set the permissions for the vault contract on Galileo
 echo "Setting the permissions for the vault contract on Galileo..."
-cast send ${GALILEO_REBASE_TOKEN_ADDRESS} --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} "grantMintAndBurnRole(address)" ${VAULT_ADDRESS}
+cast send ${GALILEO_REBASE_TOKEN_ADDRESS} --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} --gas-price $HIGH_GAS "grantMintAndBurnRole(address)" ${VAULT_ADDRESS}
 echo "Vault permissions set on Galileo"
 
 # Test initial deposit
 echo "Testing initial deposit..."
-cast send ${VAULT_ADDRESS} --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} --value 100000000000000000 "deposit()"
+cast send ${VAULT_ADDRESS} --rpc-url ${GALILEO_RPC_URL} --private-key ${GALILEO_PRIVATE_KEY} --gas-price $HIGH_GAS --value 100000000000000000 "deposit()"
 echo "Initial deposit successful"
 
 # Create deployment info
 cat > deployment-to0g.json << EOF
 {
   "network": "0G Galileo Testnet",
+  "chainId": 16602,
   "deploymentTime": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "status": "SUCCESS",
   "contracts": {

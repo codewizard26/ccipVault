@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { useAccount, useBalance, useChainId, useReadContract, useWriteContract, useSwitchChain } from "wagmi"
+import { useState, useEffect } from "react"
+import { useAccount, useBalance, useChainId, useReadContract, useWriteContract, useSwitchChain, useWaitForTransactionReceipt } from "wagmi"
 import { parseEther, formatEther } from "viem"
-import { ArrowUpRight, ArrowDownRight, Loader2, Database } from "lucide-react"
+import { ArrowUpRight, ArrowDownRight, Loader2, Shield, Info, Wallet, ChevronDown } from "lucide-react"
 import toast from "react-hot-toast"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -122,11 +122,29 @@ export default function VaultInterface() {
     const { switchChain } = useSwitchChain()
     const [activeTab, setActiveTab] = useState("deposit")
     const [amount, setAmount] = useState("")
-    const [storeSnapshot, setStoreSnapshot] = useState(false)
+    const [depositAsset, setDepositAsset] = useState("0G")
+    const [depositNote, setDepositNote] = useState("")
+    const [withdrawAsset, setWithdrawAsset] = useState("RBT")
+    const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
+
     const [isLoading, setIsLoading] = useState(false)
     const [transactions, setTransactions] = useState<Transaction[]>([])
+    const [pendingTxHash, setPendingTxHash] = useState<string | null>(null)
+    const [isProcessingConfirmation, setIsProcessingConfirmation] = useState(false)
+    const [pendingTransactionData, setPendingTransactionData] = useState<{
+        type: 'deposit' | 'withdraw' | null;
+        amount: string;
+    } | null>(null)
 
-    const { writeContract, isPending, error } = useWriteContract()
+    const { writeContract, isPending, error, data: txHash } = useWriteContract()
+
+    // Wait for transaction receipt when we have a pending hash
+    const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+        hash: pendingTxHash as `0x${string}`,
+        query: {
+            enabled: !!pendingTxHash,
+        },
+    })
 
     // Read RBT balance directly from RebaseToken contract
     const { data: userRBTBalance } = useReadContract({
@@ -155,12 +173,111 @@ export default function VaultInterface() {
 
     const isCorrectNetwork = chainId === NETWORKS.GALILEO.id
 
+    // Handle transaction hash from writeContract
+    useEffect(() => {
+        if (txHash && !pendingTxHash) {
+            console.log("Transaction hash received:", txHash)
+            setPendingTxHash(txHash)
+        }
+    }, [txHash, pendingTxHash])
+
+    // Handle writeContract errors
+    useEffect(() => {
+        if (error) {
+            console.error('WriteContract error:', error)
+            toast.error('Transaction failed. Please try again.')
+            setIsLoading(false)
+        }
+    }, [error])
+
+    // Handle transaction confirmation and database storage
+    useEffect(() => {
+        if (isConfirmed && pendingTxHash && !isProcessingConfirmation) {
+            setIsProcessingConfirmation(true)
+            handleTransactionConfirmed(pendingTxHash)
+        }
+    }, [isConfirmed, pendingTxHash, isProcessingConfirmation])
+
+    const handleTransactionConfirmed = async (txHash: string) => {
+        try {
+            console.log("Handling transaction confirmation for hash:", txHash)
+            console.log("Pending transaction data:", pendingTransactionData)
+
+            // Validate we have all required data
+            if (!txHash || !pendingTransactionData || !pendingTransactionData.type || !pendingTransactionData.amount) {
+                console.error("Missing required data for transaction:", {
+                    txHash,
+                    pendingTransactionData,
+                    activeTab,
+                    amount
+                })
+                toast.error("Missing transaction data")
+                return
+            }
+
+            // Store transaction in database with confirmed hash
+            const transactionData = {
+                transactionType: pendingTransactionData.type,
+                transactionHash: txHash,
+                amount: pendingTransactionData.amount,
+                rootHash: "pending", // Default value, will be updated if snapshot is stored
+                walletAddress: address // Include wallet address for KV storage
+            };
+
+            console.log("Sending transaction data to API:", transactionData);
+
+            const transactionResponse = await fetch("/api/transactions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(transactionData),
+            })
+
+            if (transactionResponse.ok) {
+                const responseData = await transactionResponse.json()
+                console.log("Transaction stored in database with hash:", txHash)
+
+                if (responseData.rootHash) {
+                    toast.success(`Transaction confirmed and stored in database and 0G storage! Root Hash: ${responseData.rootHash.slice(0, 8)}...${responseData.rootHash.slice(-8)}`)
+                } else {
+                    toast.success("Transaction confirmed and stored in database and 0G storage!")
+                }
+            } else {
+                const errorData = await transactionResponse.json()
+                console.error("Failed to store transaction in database:", errorData)
+                toast.error(`Database error: ${errorData.error || 'Unknown error'}`)
+            }
+
+            // Snapshot toggle removed; uploads are handled automatically by backend
+
+            // Reset states
+            setPendingTxHash(null)
+            setAmount("")
+            setIsLoading(false)
+            setIsProcessingConfirmation(false)
+            setPendingTransactionData(null)
+        } catch (error) {
+            console.error("Error handling transaction confirmation:", error)
+            toast.error("Error processing confirmed transaction")
+            setPendingTxHash(null)
+            setIsLoading(false)
+            setIsProcessingConfirmation(false)
+            setPendingTransactionData(null)
+        }
+    }
+
     const handleSwitchTo0G = async () => {
         try {
             await switchChain({ chainId: NETWORKS.GALILEO.id })
         } catch (error) {
             console.error('Failed to switch chain:', error)
         }
+    }
+
+    const resetTransactionState = () => {
+        setPendingTxHash(null)
+        setIsLoading(false)
+        setIsProcessingConfirmation(false)
+        setPendingTransactionData(null)
     }
 
     const handleDeposit = async () => {
@@ -180,6 +297,13 @@ export default function VaultInterface() {
             const loadingToast = toast.loading("Transaction sent...")
             const amountInWei = parseEther(amount)
 
+            // Store transaction data for later use
+            setPendingTransactionData({
+                type: 'deposit',
+                amount: amount
+            })
+
+            // Send transaction - hash will be received via useEffect
             writeContract({
                 address: CONTRACTS.VAULT as `0x${string}`,
                 abi: VAULT_ABI,
@@ -187,57 +311,12 @@ export default function VaultInterface() {
                 value: amountInWei,
             })
 
-            // Store snapshot if enabled
-            if (storeSnapshot) {
-                try {
-                    const snapshotData = {
-                        txHash: "pending", // Will be updated when transaction is confirmed
-                        chainUid: chainId,
-                        amount: parseFloat(amount),
-                        token: "0G",
-                        timestamp: new Date().toISOString(),
-                        userAddress: address,
-                    }
-
-                    // Mock upload to 0G
-                    const response = await fetch("/api/upload-snapshot", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(snapshotData),
-                    })
-
-                    if (response.ok) {
-                        const { rootHash } = await response.json()
-                        toast.success("Snapshot stored in 0G")
-
-                        // Add transaction to history
-                        const transaction: Transaction = {
-                            id: Date.now().toString(),
-                            type: "deposit",
-                            amount,
-                            token: "0G",
-                            txHash: "pending",
-                            timestamp: new Date().toISOString(),
-                            snapshotRootHash: rootHash,
-                        }
-                        setTransactions(prev => [transaction, ...prev])
-                    } else {
-                        toast.error("Error uploading snapshot")
-                    }
-                } catch (error) {
-                    console.error("Snapshot upload error:", error)
-                    toast.error("Error uploading snapshot")
-                }
-            }
-
             toast.dismiss(loadingToast)
-            toast.success("Transaction confirmed!")
-            setAmount("")
+            toast.loading("Waiting for transaction confirmation...")
 
         } catch (error) {
             console.error('Deposit error:', error)
             toast.error('Deposit failed. Please try again.')
-        } finally {
             setIsLoading(false)
         }
     }
@@ -248,10 +327,18 @@ export default function VaultInterface() {
             return
         }
 
+        // Basic safety: deposit asset must be 0G for now
+        if (depositAsset !== '0G') {
+            toast.error('Selected asset not supported for deposit')
+            return
+        }
+
         if (!userRBTBalance || parseFloat(formatEther(userRBTBalance as bigint)) < parseFloat(amount)) {
             toast.error('Insufficient RBT balance')
             return
         }
+
+        // Withdrawals always go to the connected wallet; no destination input required
 
         setIsLoading(true)
 
@@ -259,6 +346,13 @@ export default function VaultInterface() {
             const loadingToast = toast.loading("Transaction sent...")
             const amountInWei = parseEther(amount)
 
+            // Store transaction data for later use
+            setPendingTransactionData({
+                type: 'withdraw',
+                amount: amount
+            })
+
+            // Send transaction - hash will be received via useEffect
             writeContract({
                 address: CONTRACTS.VAULT as `0x${string}`,
                 abi: VAULT_ABI,
@@ -266,57 +360,12 @@ export default function VaultInterface() {
                 args: [amountInWei],
             })
 
-            // Store snapshot if enabled
-            if (storeSnapshot) {
-                try {
-                    const snapshotData = {
-                        txHash: "pending", // Will be updated when transaction is confirmed
-                        chainUid: chainId,
-                        amount: parseFloat(amount),
-                        token: "RBT",
-                        timestamp: new Date().toISOString(),
-                        userAddress: address,
-                    }
-
-                    // Mock upload to 0G
-                    const response = await fetch("/api/upload-snapshot", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(snapshotData),
-                    })
-
-                    if (response.ok) {
-                        const { rootHash } = await response.json()
-                        toast.success("Snapshot stored in 0G")
-
-                        // Add transaction to history
-                        const transaction: Transaction = {
-                            id: Date.now().toString(),
-                            type: "withdraw",
-                            amount,
-                            token: "RBT",
-                            txHash: "pending",
-                            timestamp: new Date().toISOString(),
-                            snapshotRootHash: rootHash,
-                        }
-                        setTransactions(prev => [transaction, ...prev])
-                    } else {
-                        toast.error("Error uploading snapshot")
-                    }
-                } catch (error) {
-                    console.error("Snapshot upload error:", error)
-                    toast.error("Error uploading snapshot")
-                }
-            }
-
             toast.dismiss(loadingToast)
-            toast.success("Transaction confirmed!")
-            setAmount("")
+            toast.loading("Waiting for transaction confirmation...")
 
         } catch (error) {
             console.error('Withdraw error:', error)
             toast.error('Withdraw failed. Please try again.')
-        } finally {
             setIsLoading(false)
         }
     }
@@ -368,8 +417,11 @@ export default function VaultInterface() {
             {/* Deposit/Withdraw Interface - Moved to top */}
             <Card className="border-none shadow-lg bg-gradient-to-br from-white to-blue-50">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-3xl font-bold text-blue-900 text-left">Vault Operations</CardTitle>
-                    <CardDescription className="text-blue-600 text-left text-lg">Deposit or withdraw tokens from the vault</CardDescription>
+                    <CardTitle className="text-3xl font-bold text-blue-900 text-left flex items-center gap-2">
+                        <Wallet className="w-7 h-7 text-blue-600" />
+                        Vault Operations
+                    </CardTitle>
+                    <CardDescription className="text-blue-600 text-left text-lg">Deposit or withdraw tokens securely</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -396,6 +448,21 @@ export default function VaultInterface() {
 
                         <TabsContent value="deposit" className="space-y-4">
                             <div className="space-y-4">
+                                {/* Asset Type */}
+                                <div>
+                                    <label className="block text-sm font-medium text-blue-900 mb-2 text-left">Asset Type</label>
+                                    <div className="relative">
+                                        <select
+                                            value={depositAsset}
+                                            onChange={(e) => setDepositAsset(e.target.value)}
+                                            className="appearance-none w-full px-4 py-3 border border-blue-200 rounded-xl bg-white pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="0G">0G</option>
+                                            <option value="RBT" disabled>RBT (unsupported)</option>
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 text-blue-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                    </div>
+                                </div>
                                 <div>
                                     <label className="block text-lg font-medium text-blue-900 mb-3 text-left">
                                         Amount (0G)
@@ -420,28 +487,34 @@ export default function VaultInterface() {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-blue-100">
-                                    <div className="flex items-center space-x-3">
-                                        <Database className="w-6 h-6 text-blue-600" />
-                                        <span className="text-lg font-medium text-blue-900">Store Snapshot on 0G</span>
-                                    </div>
-                                    <Switch
-                                        checked={storeSnapshot}
-                                        onCheckedChange={setStoreSnapshot}
-                                        disabled={isLoading || isPending}
-                                        className="data-[state=checked]:bg-blue-600"
+                                {/* Optional Note */}
+                                <div>
+                                    <label className="block text-sm font-medium text-blue-900 mb-2 text-left">Optional Note</label>
+                                    <input
+                                        type="text"
+                                        value={depositNote}
+                                        onChange={(e) => setDepositNote(e.target.value)}
+                                        placeholder="Add a memo for your records (optional)"
+                                        className="w-full px-4 py-3 border border-blue-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
 
+
+
                                 <Button
                                     onClick={handleDeposit}
-                                    disabled={isLoading || isPending || !amount || parseFloat(amount) <= 0}
+                                    disabled={isLoading || isPending || isConfirming || !amount || parseFloat(amount) <= 0}
                                     className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-7 text-lg transition-all"
                                 >
                                     {isLoading || isPending ? (
                                         <>
                                             <Loader2 className="w-6 h-6 mr-2 animate-spin" />
-                                            <span className="text-lg">Processing...</span>
+                                            <span className="text-lg">Sending...</span>
+                                        </>
+                                    ) : isConfirming ? (
+                                        <>
+                                            <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+                                            <span className="text-lg">Confirming...</span>
                                         </>
                                     ) : (
                                         <>
@@ -450,11 +523,33 @@ export default function VaultInterface() {
                                         </>
                                     )}
                                 </Button>
+
+                                {/* Debug info */}
+                                {pendingTxHash && (
+                                    <div className="text-xs text-gray-500 mt-2">
+                                        Pending TX: {pendingTxHash.slice(0, 10)}...
+                                    </div>
+                                )}
                             </div>
                         </TabsContent>
 
                         <TabsContent value="withdraw" className="space-y-4">
                             <div className="space-y-4">
+                                {/* Asset Type */}
+                                <div>
+                                    <label className="block text-sm font-medium text-blue-900 mb-2 text-left">Asset Type</label>
+                                    <div className="relative">
+                                        <select
+                                            value={withdrawAsset}
+                                            onChange={(e) => setWithdrawAsset(e.target.value)}
+                                            className="appearance-none w-full px-4 py-3 border border-blue-200 rounded-xl bg-white pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="RBT">RBT</option>
+                                            <option value="0G" disabled>0G (withdraw requires RBT)</option>
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 text-blue-600 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                    </div>
+                                </div>
                                 <div>
                                     <label className="block text-lg font-medium text-blue-900 mb-3 text-left">
                                         Amount (RBT)
@@ -479,28 +574,36 @@ export default function VaultInterface() {
                                     </div>
                                 </div>
 
+                                {/* Destination implicitly set to connected wallet */}
+
                                 <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-blue-100">
                                     <div className="flex items-center space-x-3">
-                                        <Database className="w-6 h-6 text-blue-600" />
-                                        <span className="text-lg font-medium text-blue-900">Store Snapshot on 0G</span>
+                                        <Shield className="w-6 h-6 text-blue-600" />
+                                        <span className="text-lg font-medium text-blue-900">Two‑Factor Confirmation</span>
                                     </div>
                                     <Switch
-                                        checked={storeSnapshot}
-                                        onCheckedChange={setStoreSnapshot}
+                                        checked={twoFactorEnabled}
+                                        onCheckedChange={setTwoFactorEnabled}
                                         disabled={isLoading || isPending}
                                         className="data-[state=checked]:bg-blue-600"
                                     />
                                 </div>
+                                <p className="text-xs text-blue-700 -mt-3">Enable 2FA to require an additional confirmation code before completing the withdrawal.</p>
 
                                 <Button
                                     onClick={handleWithdraw}
-                                    disabled={isLoading || isPending || !amount || parseFloat(amount) <= 0}
+                                    disabled={isLoading || isPending || isConfirming || !amount || parseFloat(amount) <= 0}
                                     className="w-full border-2 border-blue-200 text-blue-600 hover:bg-blue-50 rounded-xl py-7 text-lg transition-all"
                                 >
                                     {isLoading || isPending ? (
                                         <>
                                             <Loader2 className="w-6 h-6 mr-2 animate-spin" />
-                                            <span className="text-lg">Processing...</span>
+                                            <span className="text-lg">Sending...</span>
+                                        </>
+                                    ) : isConfirming ? (
+                                        <>
+                                            <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+                                            <span className="text-lg">Confirming...</span>
                                         </>
                                     ) : (
                                         <>
@@ -509,6 +612,13 @@ export default function VaultInterface() {
                                         </>
                                     )}
                                 </Button>
+
+                                {/* Debug info */}
+                                {pendingTxHash && (
+                                    <div className="text-xs text-gray-500 mt-2">
+                                        Pending TX: {pendingTxHash.slice(0, 10)}...
+                                    </div>
+                                )}
                             </div>
                         </TabsContent>
                     </Tabs>

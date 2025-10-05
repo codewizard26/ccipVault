@@ -7,18 +7,19 @@
   --card-foreground: 222.2 84% 4.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 84% 4.9%;
+  /* Premium bluish primary */
   --primary: 221.2 83.2% 53.3%;
   --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96%;
+  --secondary: 210 40% 97%;
   --secondary-foreground: 222.2 84% 4.9%;
-  --muted: 210 40% 96%;
+  --muted: 210 40% 97%;
   --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96%;
+  --accent: 210 40% 97%;
   --accent-foreground: 222.2 84% 4.9%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
+  --border: 214.3 31.8% 92.5%;
+  --input: 214.3 31.8% 92.5%;
   --ring: 221.2 83.2% 53.3%;
   --radius: 0.5rem;
 }
@@ -52,4 +53,65 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Polished, consistent focus ring */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25);
+}
+
+/* Smooth transitions across interactive elements */
+button,
+a,
+input,
+select,
+textarea,
+[role="button"] {
+  transition: all 150ms ease;
+}
+
+/* Subtle card shadow */
+.card-elevated {
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+
+/* Premium scrollbar for dashboards */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: hsl(var(--secondary));
+}
+
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.25);
+  border-radius: 9999px;
+  border: 2px solid hsl(var(--secondary));
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.35);
+}
+
+/* Utility helpers for consistent spacing and rounded look */
+.app-section {
+  @apply bg-white rounded-2xl border border-[hsl(var(--border))] p-6;
+}
+
+.app-section-muted {
+  @apply bg-[hsl(var(--secondary))] rounded-2xl border border-[hsl(var(--border))] p-6;
+}
+
+.app-kpi {
+  @apply bg-white rounded-xl border border-[hsl(var(--border))] p-4 shadow-sm;
+}
+
+.app-kpi-accent {
+  @apply bg-blue-50 rounded-xl border border-blue-100 p-4 shadow-sm;
 }

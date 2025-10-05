@@ -4,19 +4,18 @@ A decentralized interest-bearing vault built on the 0G network that allows users
 
 ## 🎉 Deployment Status
 
-### 📋 Contract Addresses
+### 📋 Contract Addresses (0G Galileo Testnet - Chain ID 16602)
 
 | Contract | Address | Status |
 |----------|---------|--------|
-| **RebaseToken** | `0xE4aD0ADAf7E5759569081dF90fC76381eD70A2B5` | ✅ Deployed |
-| **Pool** | `0x6c1FEDA3Ace971Ba274BC5b5622acC08Ad2A872C` | ✅ Deployed |
-| **Vault** | `0x1a89Be0B6e08B8cF668B36c6F95f9781ABC917ba` | ✅ Deployed |
+| **RebaseToken** | `0xe1927760CE13363e0813d9fcDbd2ab6771A6585a` | ✅ Deployed |
+| **Pool** | `0xf6C7bF63A9E8C33A16e35783cDb4984f86e55602` | ✅ Deployed |
+| **Vault** | `0x056c765EEDe2Da129d36d7bBA656B1f0f8d30D7f` | ✅ Deployed |
 
 ### 🔧 Configuration
-- **Network:** 0G Galileo Testnet (Chain ID: 2131427466778448014)
-- **Router:** `0x5c21Bb4Bd151Bd6Fa2E6d7d1b63B83485529Cdb4`
-- **RNM Proxy:** `0x83eBE7Ceb4916C3Cb86662f65b353E4324390059`
-- **Link Token:** `0xd211Bd4ff8fd68C16016C5c7a66b6e10F6227C49`
+- **Network:** 0G Galileo Testnet (Chain ID: 16602)
+- **RPC:** `https://evmrpc-testnet.0g.ai`
+- **Block Explorer:** `https://galileo.0g.ai`
 
 ### ✅ Deployment Status
 - ✅ **Permissions:** All roles granted correctly
@@ -37,26 +36,28 @@ A decentralized interest-bearing vault built on the 0G network that allows users
    - Automatic token rebasing
    - Interest accrual through rebasing
 
-3. **Advanced Security**
-   - Immutable snapshots on 0G Storage
-   - Comprehensive audit trails
-   - Bank-grade security features
+3. **On-chain 0G Storage (KV)**
+   - Automatically stores transaction snapshots (keyed by tx hash) on 0G Storage
+   - Root hash is surfaced in UI and toast notifications on upload/download
+   - Seamless retrieval for audit and historical proof
 
-4. **AI-Powered Analytics**
-   - Real-time analytics dashboard
-   - Risk insights and monitoring
-   - Performance tracking
+4. **AI-Powered Analytics via 0G Compute**
+   - Broker-backed connection to verified providers (TEE/TeeML)
+   - Full vault analysis and Q&A (“Ask a question about your vault”)
+   - Secure per-request signed headers, optional result verification
    
 ### Technical Implementation
-- **Snapshot System**
-  - JSON snapshots stored on 0G Storage
-  - Immutable proof generation
-  - Instant access to historical data
+- **On-chain Storage (0G KV)**
+  - Tx hash → wallet address and transaction metadata stored on 0G KV
+  - Root hash persisted and shown on UI; download supported from History
 
-- **Analytics Processing**
-  - Data aggregation via 0G Compute
-  - Real-time metrics calculation
-  - AI-powered risk assessment
+- **Off-chain Storage (Neon DB)**
+  - `vault_transactions` table for deposits/withdrawals and root hashes
+  - Used for fast dashboards, 4-hour interval analytics, and model context
+
+- **Analytics & AI (0G Compute + OpenAI SDK)**
+  - Authenticated requests to providers; model metadata resolved at runtime
+  - Full analysis and custom Q&A endpoints via Next.js API routes
 
 ## 📈 Development Roadmap
 
@@ -67,19 +68,16 @@ A decentralized interest-bearing vault built on the 0G network that allows users
 - [x] Network integration & switching
 - [x] MetaMask integration
 
-### Phase 2: 0G Storage Integration 🔄
-- [ ] Snapshot system implementation
-- [ ] IPFS/0G Storage integration
-- [ ] Historical data tracking
-- [ ] Proof generation system
-- [ ] Transaction history with proofs
+### Phase 2: 0G Storage Integration ✅
+- [x] Automatic 0G KV storage on tx confirmation
+- [x] Root hash surfaced in UI and toasts
+- [x] Snapshot fetch from History (modal view)
 
-### Phase 3: Analytics Platform 🔮
-- [ ] 0G Compute integration
-- [ ] Advanced analytics dashboard
-- [ ] Performance metrics
-- [ ] Risk assessment system
-- [ ] AI-powered insights
+### Phase 3: Analytics Platform ✅
+- [x] 0G Compute integration (broker + providers)
+- [x] Analytics dashboard with 4‑hour interval charts
+- [x] AI risk/usage/APR insights
+- [x] Vault Q&A powered by 0G Compute
 
 ### Phase 4: Advanced Features 🔮
 - [ ] Cross-chain integration (CCIP)
@@ -103,15 +101,12 @@ A decentralized interest-bearing vault built on the 0G network that allows users
    ```
 
 3. **Connect Wallet**
-   - Switch to 0G Galileo Testnet
-   - Use the provided faucet to get test tokens
-   - Follow MetaMask setup guide in `METAMASK_SETUP_GUIDE.md`
+   - Switch to 0G Galileo Testnet (Chain ID 16602)
+   - Use the 0G faucet to get test tokens
 
 ## 📚 Documentation
 
 - [Setup Guide](SETUP_GUIDE.md)
-- [MetaMask Setup](frontend/METAMASK_SETUP_GUIDE.md)
-- [0G Connection Guide](frontend/0G_CONNECTION_GUIDE.md)
 - [Vault Mechanics](VAULT_MECHANICS.md)
 - [Deployment Guide](DEPLOYMENT_SCRIPTS_GUIDE.md)
 
