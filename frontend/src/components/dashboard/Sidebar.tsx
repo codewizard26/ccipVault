@@ -9,7 +9,8 @@ import {
   Wallet,
   TrendingUp,
   Shield,
-  Brain
+  Brain,
+  Lock
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -22,6 +23,12 @@ const navigation = [
     href: "/dashboard",
     icon: Vault,
     description: "Manage your vault deposits and withdrawals"
+  },
+  {
+    name: "Staking",
+    href: "/dashboard/staking",
+    icon: Lock,
+    description: "Stake tokens for voting power"
   },
   {
     name: "Analytics",

@@ -7,6 +7,18 @@ import {IERC20} from "../lib/ccip/contracts/src/v0.8/vendor/openzeppelin-solidit
 import {IRebaseToken} from "./interfaces/IRebaseToken.sol";
 
 contract RebaseTokenPool is TokenPool {
+    // Staking state variables
+    mapping(address => uint256) private s_stakedBalances;
+    mapping(address => uint256) private s_stakingTimestamps;
+    uint256 private s_totalStaked;
+    // Events
+    event TokensStaked(address indexed user, uint256 amount, uint256 timestamp);
+    event TokensUnstaked(
+        address indexed user,
+        uint256 amount,
+        uint256 timestamp
+    );
+
     constructor(
         IERC20 _token,
         address[] memory _allowlist,
@@ -47,5 +59,90 @@ contract RebaseTokenPool is TokenPool {
             Pool.ReleaseOrMintOutV1({
                 destinationAmount: releaseOrMintIn.amount
             });
+    }
+
+    // Staking Functions
+
+    /**
+     * @notice Stake tokens to earn voting power
+     * @param amount The amount of tokens to stake
+     */
+    function stake(uint256 amount) external {
+        require(amount > 0, "Amount must be greater than 0");
+        require(
+            IERC20(i_token).balanceOf(msg.sender) >= amount,
+            "Insufficient token balance"
+        );
+        require(
+            IERC20(i_token).allowance(msg.sender, address(this)) >= amount,
+            "Insufficient allowance"
+        );
+
+        // Transfer tokens from user to this contract
+        IERC20(i_token).transferFrom(msg.sender, address(this), amount);
+
+        // Update staking balances
+        s_stakedBalances[msg.sender] += amount;
+        s_stakingTimestamps[msg.sender] = block.timestamp;
+        s_totalStaked += amount;
+
+        emit TokensStaked(msg.sender, amount, block.timestamp);
+    }
+
+    /**
+     * @notice Unstake tokens and lose voting power
+     * @param amount The amount of tokens to unstake
+     */
+    function unstake(uint256 amount) external {
+        require(amount > 0, "Amount must be greater than 0");
+        require(
+            s_stakedBalances[msg.sender] >= amount,
+            "Insufficient staked balance"
+        );
+
+        // Update staking balances
+        s_stakedBalances[msg.sender] -= amount;
+        s_totalStaked -= amount;
+
+        // Transfer tokens back to user
+        IERC20(i_token).transfer(msg.sender, amount);
+
+        emit TokensUnstaked(msg.sender, amount, block.timestamp);
+    }
+
+    /**
+     * @notice Get the staked balance of a user
+     * @param user The user address
+     * @return The staked balance
+     */
+    function getStakedBalance(address user) external view returns (uint256) {
+        return s_stakedBalances[user];
+    }
+
+    /**
+     * @notice Get the voting power of a user (1:1 with staked tokens)
+     * @param user The user address
+     * @return The voting power
+     */
+    function getVotingPower(address user) external view returns (uint256) {
+        return s_stakedBalances[user];
+    }
+
+    /**
+     * @notice Get the total amount of tokens staked across all users
+     * @return The total staked amount
+     */
+    function getTotalStaked() external view returns (uint256) {
+        return s_totalStaked;
+    }
+
+
+    /**
+     * @notice Get the staking timestamp for a user
+     * @param user The user address
+     * @return The staking timestamp
+     */
+    function getStakingTimestamp(address user) external view returns (uint256) {
+        return s_stakingTimestamps[user];
     }
 }

@@ -1,10 +1,29 @@
 // Contract addresses and configuration
 // Updated with deployed contract addresses
 
+import RebaseTokenABI from "../contracts/RebaseToken.json";
+import RebaseTokenPoolABI from "../contracts/RebaseTokenPool.json";
+import VaultABI from "../contracts/Vault.json";
+
+export const contracts = {
+    rebaseToken: {
+        address: "0xe1927760CE13363e0813d9fcDbd2ab6771A6585a",
+        abi: RebaseTokenABI.abi,
+    },
+    rebaseTokenPool: {
+        address: "0x5d812E2DECb3fB88DfA3fC5758b615E49BdCBaD8",
+        abi: RebaseTokenPoolABI.abi,
+    },
+    vault: {
+        address: "0x056c765EEDe2Da129d36d7bBA656B1f0f8d30D7f",
+        abi: VaultABI.abi,
+    },
+};
+
 export const CONTRACTS = {
     // Deployed contract addresses on 0G Galileo Testnet (Chain ID: 16602)
     REBASE_TOKEN: "0xe1927760CE13363e0813d9fcDbd2ab6771A6585a",
-    POOL: "0xf6C7bF63A9E8C33A16e35783cDb4984f86e55602",
+    POOL: "0x5d812E2DECb3fB88DfA3fC5758b615E49BdCBaD8",
     VAULT: "0x056c765EEDe2Da129d36d7bBA656B1f0f8d30D7f",
 };
 
