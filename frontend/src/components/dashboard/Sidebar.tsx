@@ -10,7 +10,8 @@ import {
   TrendingUp,
   Shield,
   Brain,
-  Lock
+  Lock,
+  Vote
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -29,6 +30,12 @@ const navigation = [
     href: "/dashboard/staking",
     icon: Lock,
     description: "Stake tokens for voting power"
+  },
+  {
+    name: "Proposals",
+    href: "/dashboard/proposals",
+    icon: Vote,
+    description: "View and create DAO proposals"
   },
   {
     name: "Analytics",

@@ -63,17 +63,25 @@ export async function uploadToKV(streamId: string, key: string, value: string) {
             throw new Error(`Error selecting nodes: ${err}`);
         }
 
+        // Try using a different approach - create contract without ABI
         const flowContract = new ethers.Contract(
             FLOW_CONTRACT_ADDRESS,
-            ['function flow(bytes32, bytes) external'],
+            [
+                'function flow(bytes32, bytes) external',
+                'function market() external view returns (address)',
+                'function submit(bytes32, bytes) external',
+                'function getMarket() external view returns (address)',
+                'function getFlow() external view returns (address)'
+            ],
             signer
         ) as any; // Type assertion for 0G SDK compatibility
 
         const batcher = new Batcher(1, nodes, flowContract, RPC_URL);
 
+        const streamIdBytes = Uint8Array.from(Buffer.from(streamId, 'utf-8'));
         const keyBytes = Uint8Array.from(Buffer.from(key, 'utf-8'));
         const valueBytes = Uint8Array.from(Buffer.from(value, 'utf-8'));
-        batcher.streamDataBuilder.set(streamId, keyBytes, valueBytes);
+        (batcher.streamDataBuilder as any).set(streamIdBytes, keyBytes, valueBytes);
 
         const [tx, batchErr] = await batcher.exec();
         if (batchErr !== null) {
@@ -92,8 +100,9 @@ export async function uploadToKV(streamId: string, key: string, value: string) {
 export async function downloadFromKV(streamId: string, key: string) {
     try {
         const kvClient = new KvClient(KV_CLIENT_URL);
+        const streamIdBytes = Uint8Array.from(Buffer.from(streamId, 'utf-8'));
         const keyBytes = Uint8Array.from(Buffer.from(key, 'utf-8'));
-        const value = await kvClient.getValue(streamId, ethers.encodeBase64(keyBytes) as any);
+        const value = await kvClient.getValue(ethers.encodeBase64(streamIdBytes) as any, ethers.encodeBase64(keyBytes) as any);
         return value;
     } catch (error) {
         console.error('KV download error:', error);
@@ -132,6 +141,43 @@ export async function getWalletFromTransaction(transactionHash: string) {
         return walletAddress;
     } catch (error) {
         console.error('Failed to retrieve wallet address from KV storage:', error);
+        throw error;
+    }
+}
+
+// Store proposal data in 0G storage using the same approach as vault transactions
+export async function storeProposalInKV(proposalId: string, proposalData: any) {
+    try {
+        console.log(`Storing proposal ${proposalId} in 0G storage`);
+
+        // Use the same approach as vault transactions - uploadJsonData
+        const { uploadJsonData } = await import('./UploadDataToStorage');
+
+        const fileName = `proposal-${proposalId}-${Date.now()}.json`;
+        const result = await uploadJsonData(proposalData, fileName);
+
+        console.log('Proposal stored in 0G storage successfully:', result);
+        return { success: true, txHash: result.txHash, rootHash: result.rootHash };
+    } catch (error) {
+        console.error('Failed to store proposal in 0G storage:', error);
+        throw error;
+    }
+}
+
+// Retrieve proposal data from 0G storage using the same approach as vault transactions
+export async function getProposalFromKV(rootHash: string) {
+    try {
+        console.log(`Retrieving proposal from 0G storage with rootHash: ${rootHash}`);
+
+        // Use the same approach as vault transactions - downloadJsonData
+        const { downloadJsonData } = await import('./UploadDataToStorage');
+
+        const proposalData = await downloadJsonData(rootHash, `proposal-${Date.now()}.json`);
+
+        console.log('Proposal retrieved from 0G storage:', proposalData);
+        return proposalData;
+    } catch (error) {
+        console.error('Failed to retrieve proposal from 0G storage:', error);
         throw error;
     }
 }
