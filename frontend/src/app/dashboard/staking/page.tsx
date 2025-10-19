@@ -278,13 +278,13 @@ export default function StakingPage() {
     }
 
     const handleMaxStake = () => {
-        if (tokenBalance) {
+        if (tokenBalance && typeof tokenBalance === 'bigint') {
             setStakeAmount(formatEther(tokenBalance))
         }
     }
 
     const handleMaxUnstake = () => {
-        if (stakedBalance) {
+        if (stakedBalance && typeof stakedBalance === 'bigint') {
             setUnstakeAmount(formatEther(stakedBalance))
         }
     }
@@ -327,7 +327,7 @@ export default function StakingPage() {
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Your Staked</p>
                                 <p className="text-2xl font-bold text-gray-900">
-                                    {stakedBalance ? formatEther(stakedBalance) : "0"} RBT
+                                    {stakedBalance && typeof stakedBalance === 'bigint' ? formatEther(stakedBalance) : "0"} RBT
                                 </p>
                             </div>
                             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -343,7 +343,7 @@ export default function StakingPage() {
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Voting Power</p>
                                 <p className="text-2xl font-bold text-gray-900">
-                                    {votingPower ? formatEther(votingPower) : "0"} VP
+                                    {votingPower && typeof votingPower === 'bigint' ? formatEther(votingPower) : "0"} VP
                                 </p>
                             </div>
                             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -359,7 +359,7 @@ export default function StakingPage() {
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Total Staked</p>
                                 <p className="text-2xl font-bold text-gray-900">
-                                    {totalStaked ? formatEther(totalStaked) : "0"} RBT
+                                    {totalStaked && typeof totalStaked === 'bigint' ? formatEther(totalStaked) : "0"} RBT
                                 </p>
                             </div>
                             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -375,7 +375,7 @@ export default function StakingPage() {
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Token Balance</p>
                                 <p className="text-2xl font-bold text-gray-900">
-                                    {tokenBalance ? formatEther(tokenBalance) : "0"} RBT
+                                    {tokenBalance && typeof tokenBalance === 'bigint' ? formatEther(tokenBalance) : "0"} RBT
                                 </p>
                             </div>
                             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -422,7 +422,7 @@ export default function StakingPage() {
                                 </Button>
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
-                                Available: {tokenBalance ? formatEther(tokenBalance) : "0"} RBT
+                                Available: {tokenBalance && typeof tokenBalance === 'bigint' ? formatEther(tokenBalance) : "0"} RBT
                             </p>
                         </div>
 
@@ -490,7 +490,7 @@ export default function StakingPage() {
                                 </Button>
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
-                                Staked: {stakedBalance ? formatEther(stakedBalance) : "0"} RBT
+                                Staked: {stakedBalance && typeof stakedBalance === 'bigint' ? formatEther(stakedBalance) : "0"} RBT
                             </p>
                         </div>
 

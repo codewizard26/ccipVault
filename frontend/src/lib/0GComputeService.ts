@@ -55,6 +55,17 @@ export class ZGComputeService {
 
     // Try to connect to official providers
     private async tryOfficialProviders(): Promise<void> {
+        // Check if we should use OpenAI fallback
+        if (process.env.USE_OPENAI_FALLBACK === 'true' && process.env.OPENAI_API_KEY) {
+            console.log('Using OpenAI fallback for development...');
+            this.currentProvider = 'openai-fallback';
+            this.currentModel = 'gpt-3.5-turbo';
+            this.openai = new OpenAI({
+                apiKey: process.env.OPENAI_API_KEY
+            });
+            return;
+        }
+
         for (const [model, providerAddress] of Object.entries(OFFICIAL_PROVIDERS)) {
             try {
                 console.log(`Trying to connect to ${model} (${providerAddress})...`);
@@ -115,7 +126,18 @@ export class ZGComputeService {
             console.error('Failed to list services:', error);
         }
 
-        throw new Error('No 0G compute providers available');
+        // If no 0G providers available, try OpenAI fallback
+        if (process.env.OPENAI_API_KEY) {
+            console.log('No 0G providers available, falling back to OpenAI...');
+            this.currentProvider = 'openai-fallback';
+            this.currentModel = 'gpt-3.5-turbo';
+            this.openai = new OpenAI({
+                apiKey: process.env.OPENAI_API_KEY
+            });
+            return;
+        }
+
+        throw new Error('No 0G compute providers available and no OpenAI fallback configured');
     }
 
 
@@ -147,15 +169,30 @@ export class ZGComputeService {
         return await this.generateAIResponse(prompt);
     }
 
-    // Generate AI response using 0G compute
+    // Generate AI response using 0G compute or OpenAI fallback
     private async generateAIResponse(prompt: string): Promise<string> {
         if (!this.currentProvider || !this.currentModel) {
             throw new Error('0G compute service not initialized');
         }
 
         try {
-            // Generate auth headers for this request
             const messages = [{ role: "user" as const, content: prompt }];
+
+            // Handle OpenAI fallback
+            if (this.currentProvider === 'openai-fallback') {
+                console.log('Using OpenAI fallback for AI response...');
+                const completion = await this.openai!.chat.completions.create({
+                    messages: messages,
+                    model: this.currentModel,
+                    temperature: 0.7,
+                    max_tokens: 1000
+                });
+
+                return completion.choices[0].message.content!;
+            }
+
+            // Handle 0G compute
+            // Generate auth headers for this request
             const headers = await this.broker.inference.getRequestHeaders(
                 this.currentProvider,
                 JSON.stringify(messages)

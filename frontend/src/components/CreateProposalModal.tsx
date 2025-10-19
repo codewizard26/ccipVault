@@ -43,8 +43,8 @@ export function CreateProposalModal({
         },
     });
 
-    const hasMinimumTokens = userRBTBalance && Number(userRBTBalance) >= 1e18;
-    const formattedBalance = userRBTBalance ? parseFloat(formatEther(userRBTBalance)).toFixed(4) : "0";
+    const hasMinimumTokens = userRBTBalance && typeof userRBTBalance === 'bigint' && Number(userRBTBalance) >= 1e18;
+    const formattedBalance = userRBTBalance && typeof userRBTBalance === 'bigint' ? parseFloat(formatEther(userRBTBalance)).toFixed(4) : "0";
 
     const validateForm = () => {
         const newErrors: { [key: string]: string } = {};
